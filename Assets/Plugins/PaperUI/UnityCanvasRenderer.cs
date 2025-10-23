@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class UnityCanvasRenderer : ICanvasRenderer
 {
+    private readonly ICanvasMeshHandler _meshHandler;
     public Material Material;
     public static Texture2D DefaultTex { get; private set; }
 
@@ -46,21 +47,19 @@ public class UnityCanvasRenderer : ICanvasRenderer
         set => Material.SetVector("_BrushParams2", value);
     }
 
-    public UnityCanvasRenderer(Material material)
+    public UnityCanvasRenderer(ICanvasMeshHandler meshHandler)
     {
-        Material = material;
+        Material = new Material(Shader.Find("PaperUI/Shader"));
+        _meshHandler = meshHandler;
         if (DefaultTex == null)
         {
             DefaultTex = new Texture2D(1, 1, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point
             };
-            DefaultTex.SetPixel(0, 0, new UnityEngine.Color(0f, 0f, 0f, 0f));
+            DefaultTex.SetPixel(0, 0, new UnityEngine.Color(1f, 1f, 1f, 1f));
             DefaultTex.Apply();
         }
-    }
-    public UnityCanvasRenderer() : this(new Material(Shader.Find("PaperUI/Shader")))
-    {
     }
 
     public object CreateTexture(uint width, uint height)
@@ -85,6 +84,7 @@ public class UnityCanvasRenderer : ICanvasRenderer
 
     public void RenderCalls(Prowl.Quill.Canvas canvas, IReadOnlyList<DrawCall> drawCalls)
     {
+        _meshHandler.Clear();
         int index = 0;
         foreach (var drawCall in drawCalls)
         {
@@ -96,14 +96,11 @@ public class UnityCanvasRenderer : ICanvasRenderer
                 var b = canvas.Vertices[(int)canvas.Indices[index + 1]];
                 var c = canvas.Vertices[(int)canvas.Indices[index + 2]];
                 Material.SetPass(0);
-                Graphics.DrawMeshNow(
-                    MeshGenerator.CreateTriangle(a, b, c),
-                    Matrix4x4.identity,
-                    0
-                );
+                _meshHandler.AddMeshData(a, b, c);
                 index += 3;
             }
         }
+        _meshHandler.BuildMesh(Material);
     }
 
     public void SetTextureData(object texture, Prowl.Vector.Geometry.IntRect bounds, byte[] data)
